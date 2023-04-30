@@ -1,13 +1,17 @@
 from random import shuffle, randint, choice
 from typing import List, Tuple
 import time
+
 # import sympy
 
-NUMBERS_TO_USE = [3, 4, 2, 7]
-SIGNS_TO_USE = ('+', '-', '*', '/')
-USE_BRACKETS = True
-RESULTS_TO_FIND = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-TIME_LIMIT = 10  # limit time (seconds) for find solution
+NUMBERS_TO_USE = [2, 5, 2, 5]  # these numbers will form the expression to get expected result
+SIGNS_TO_USE = ('+', '-', '*', '/')  # these signs will be used in expression
+RESULTS_TO_FIND = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]  # expected results for expression calculation
+
+TIME_LIMIT = 2  # limit time (seconds) for find solution
+NEGATIVE_NUMBERS_PROBABILITY = 10  # percent of using negative numbers
+BRACKETS_PROBABILITY = 30  # percent of using brackets
+EXPRESSIONS_TO_SHOW = 3  # the number of the shortest expressions that will be shown as an answer
 
 
 def rng(probability: int, symbol: str) -> str:
@@ -15,7 +19,7 @@ def rng(probability: int, symbol: str) -> str:
     return symbol if 0 < randint(1, 100) <= probability else ''
 
 
-def get_numbers(numbers_: List[int]) -> List[str]:
+def get_numbers(numbers_: List[int], negatives_probability: int = NEGATIVE_NUMBERS_PROBABILITY) -> List[str]:
     """Returns combinations of given numbers with different concatenation, positions and signs.
     ex. [1, 2, 3] -> [-32, 1]. Returns minimum 2 numbers"""
     nums = list(map(str, numbers_))
@@ -25,7 +29,7 @@ def get_numbers(numbers_: List[int]) -> List[str]:
             el2 = nums.pop(randint(0, len(nums) - 1))
             nums.append(el + el2)
     shuffle(nums)
-    return [rng(10, '-') + num for num in nums]
+    return [(rng(negatives_probability, '-') + num) if ind != 0 else num for ind, num in enumerate(nums)]
 
 
 def convert_double_signs(expressions_: List[str]) -> None:
@@ -43,7 +47,9 @@ def convert_double_signs(expressions_: List[str]) -> None:
             expressions_[ind] = exp_
 
 
-def get_expression(numbers: List[str], signs: Tuple[str, ...], use_brackets: bool) -> List[str]:
+def get_expression(numbers: List[str],
+                   signs: Tuple[str, ...],
+                   brackets_probability: int = BRACKETS_PROBABILITY) -> List[str]:
     """Forms list of expressions with combinations of sings and brackets for given numbers list."""
     expressions_ = []
 
@@ -60,7 +66,7 @@ def get_expression(numbers: List[str], signs: Tuple[str, ...], use_brackets: boo
 
     expression_ = [el for num in numbers for el in [num, sgn()]]
     expressions_.append("".join(expression_)[:-1])
-    if use_brackets:
+    if 0 < randint(1, 100) <= brackets_probability:
         if len(numbers) >= 3:
             expressions_.append("".join(insert_brackets(expression_, 0, 4))[:-1])
             expressions_.append("".join(insert_brackets(expression_, 2, 6))[:-1])
@@ -84,22 +90,23 @@ if __name__ == '__main__':
         print(f'Looking for expression to get \033[1;36;48m{expected_result:2}\x1b[0m: ', end='')
         start_time = time.time()
         expressions_found = []
-        while time.time() < start_time + TIME_LIMIT and len(expressions_found) < 5:
-            expressions = get_expression(get_numbers(NUMBERS_TO_USE), SIGNS_TO_USE, USE_BRACKETS)
+        while time.time() < start_time + TIME_LIMIT and len(expressions_found) < 500:
+            expressions = get_expression(get_numbers(NUMBERS_TO_USE), SIGNS_TO_USE)
             for expression in expressions:
                 result = None
                 try:
                     result = eval(expression)
-                    # result = sympy.sympify(expression)
+                    # result = sympy.sympify(expression)  # allows to simplify expressions but slow. Disabled.
                 except:  # yes, I know it's too broad. But I need an answer only and don't want to handle all errors.
                     pass
                 if result == expected_result:
                     expressions_found.append(expression)
         if expressions_found:
-            print(f'found {len(expressions_found)} options in {round(time.time() - start_time, 1)} seconds: ', end='')
+            print(f'found {len(expressions_found):4} options in {round(time.time() - start_time, 1)} seconds: ', end='')
             convert_double_signs(expressions_found)
+            expressions_found = list(set(expressions_found))
             expressions_found.sort(key=lambda x: len(x))
-            expressions_found = [expr.rjust(12) for expr in expressions_found[:3]]
+            expressions_found = [expr.rjust(12) for expr in expressions_found[:EXPRESSIONS_TO_SHOW]]
             print(*expressions_found, sep='   ')
         else:
             print("Sorry, couldn't find! Try to increase timelimit!")
